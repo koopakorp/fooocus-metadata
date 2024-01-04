@@ -10,6 +10,8 @@
 # - Implemented calculating hash if needed.
 # - Cleaned up handling older log files (at least early december)
 # - Added hash section for button json. Civitai will pick up all loras used as resources with this.
+# 2024.01.03:
+# - Added option to process just a single file rather than deal with whole directories. (button json processing)
 # --------------------------------------------------------------------------------------
 import os
 import json
@@ -19,9 +21,12 @@ from PIL import Image
 from PIL.PngImagePlugin import PngInfo
 from bs4 import BeautifulSoup
 
+
 DIRECTORY = 'C:\AI_ART\StabilityMatrix\Data\Images\Fooocus'
 MODEL_DIRECTORY = 'C:\AI_ART\StabilityMatrix\Data\Models\StableDiffusion'
 LORA_DIRECTORY = 'C:\AI_ART\StabilityMatrix\Data\Models\Lora'
+PROCESS_MODE = 'FILE' # Process entire directories or just a single file.
+PROCESS_FILE = 'C:\AI_ART\StabilityMatrix\Data\Images\Fooocus\\2024-01-03\\2024-01-03_20-44-35_8488.png'
 UPDATE_MODE = True # False won't update the file or anything
 RENAME_MODE = True # if UPDATE_MODE is True, this determines if it saves the file with a new name (adds _meta on end of new filename)
 
@@ -223,7 +228,7 @@ def build_text(metadata):
                         # put in hash calculate here
     return text
 
-def main():
+def process_directories():
     # get list of directories
     sub_dirs = scandir(DIRECTORY)
     # loop through directories
@@ -272,6 +277,41 @@ def main():
                 else:
                     continue
                 #break
+
+def process_file(filepath):
+    print(f'Processing {filepath}')
+    # log.html better be in the same directory as the file
+    dir_file = filepath.rfind('\\')
+    if dir_file > 0:
+        filename = filepath[dir_file+1:]
+        log_file = filepath[:dir_file] + '\log.html'
+
+        try:
+            with open(log_file) as f:
+                soup = BeautifulSoup(f, 'html.parser')
+        except:
+            print(f'No log file named: {log_file}')
+            return None
+        # get a list of all divs in the html log file
+        divs = soup.findAll("div")
+        for div in divs:
+            data = strip_html(div)
+            if data[0] == filename:
+                metadata = {}
+                metadata = parse_button(div)
+                text_meta = build_text_json(metadata)
+                update_image(filepath, text_meta)
+                #check_image(filepath)
+                break
+        print(f'File updated!')
+    else:
+        return None
+
+def main():
+    if PROCESS_MODE == 'DIR':
+        process_directories()
+    elif PROCESS_MODE == 'FILE':
+        process_file(PROCESS_FILE)
 
 if __name__ == "__main__":
     main()
